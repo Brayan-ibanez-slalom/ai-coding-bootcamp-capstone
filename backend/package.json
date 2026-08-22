@@ -11,8 +11,8 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "chess.js": "^1.4.0",
-    "cors": "^2.8.6",
-    "express": "^5.2.1"
+    "chess.js": "1.4.0",
+    "cors": "2.8.6",
+    "express": "5.2.1"
   }
 }

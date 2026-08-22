@@ -82,14 +82,16 @@ function FeedbackPanel({ feedback, loading }) {
 }
 
 export default function App() {
-  const [game, setGame] = useState(new Chess());
+  const [game, setGame] = useState(new Chess().fen());
   const [feedback, setFeedback] = useState(null);
   const [loading, setLoading] = useState(false);
   const [lastMoveSquares, setLastMoveSquares] = useState({});
 
   const onDrop = useCallback(
-    async (sourceSquare, targetSquare) => {
-      const gameCopy = new Chess(game.fen());
+    ({ sourceSquare, targetSquare }) => {
+      if (!targetSquare) return false;
+
+      const gameCopy = new Chess(game);
       const fenBefore = gameCopy.fen();
 
       let move;
@@ -101,7 +103,7 @@ export default function App() {
       if (!move) return false;
 
       const fenAfter = gameCopy.fen();
-      setGame(gameCopy);
+      setGame(gameCopy.fen());
       setLastMoveSquares({
         [sourceSquare]: { background: 'rgba(234,179,8,0.35)' },
         [targetSquare]: { background: 'rgba(234,179,8,0.35)' },
@@ -109,19 +111,21 @@ export default function App() {
 
       setLoading(true);
       setFeedback(null);
-      try {
-        const res = await fetch(`${BACKEND_URL}/api/evaluate-move`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ fenBefore, fenAfter, moveSAN: move.san }),
+      fetch(`${BACKEND_URL}/api/evaluate-move`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ fenBefore, fenAfter, moveSAN: move.san }),
+      })
+        .then(async (res) => {
+          const data = await res.json();
+          setFeedback({ ...data, moveSAN: move.san });
+        })
+        .catch(() => {
+          setFeedback({ error: 'Could not reach the backend.' });
+        })
+        .finally(() => {
+          setLoading(false);
         });
-        const data = await res.json();
-        setFeedback({ ...data, moveSAN: move.san });
-      } catch (err) {
-        setFeedback({ error: 'Could not reach the backend.' });
-      } finally {
-        setLoading(false);
-      }
 
       return true;
     },
@@ -129,7 +133,7 @@ export default function App() {
   );
 
   const resetGame = useCallback(() => {
-    setGame(new Chess());
+    setGame(new Chess().fen());
     setFeedback(null);
     setLastMoveSquares({});
     setLoading(false);
@@ -146,15 +150,17 @@ export default function App() {
         <div className="board-column">
           <div className="board-wrapper">
             <Chessboard
-              position={game.fen()}
-              onPieceDrop={onDrop}
-              boardWidth={480}
-              customSquareStyles={lastMoveSquares}
-              customDarkSquareStyle={{ backgroundColor: '#4b5563' }}
-              customLightSquareStyle={{ backgroundColor: '#f4f4f5' }}
-              customBoardStyle={{
-                borderRadius: '8px',
-                boxShadow: '0 8px 32px rgba(0,0,0,0.5)',
+              options={{
+                position: game,
+                onPieceDrop: onDrop,
+                boardWidth: 480,
+                customSquareStyles: lastMoveSquares,
+                darkSquareStyle: { backgroundColor: '#4b5563' },
+                lightSquareStyle: { backgroundColor: '#f4f4f5' },
+                boardStyle: {
+                  borderRadius: '8px',
+                  boxShadow: '0 8px 32px rgba(0,0,0,0.5)',
+                },
               }}
             />
           </div>

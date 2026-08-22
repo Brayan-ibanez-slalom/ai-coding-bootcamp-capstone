@@ -76,6 +76,28 @@ The main UI is split into a board column and a feedback panel. `App` owns the ga
 
 There is no database, authentication layer, server-side session, or persistent game storage. Each evaluation is stateless and derives its result only from the submitted request.
 
+## Pinned Versions
+
+Direct dependencies use exact versions in both `package.json` files. The lockfiles also record the resolved transitive dependency tree, so clean installs can reproduce the same package set.
+
+| Package | Area | Version |
+| --- | --- | ---: |
+| Node.js | Runtime | 22 LTS recommended |
+| `chess.js` | Frontend and backend | `1.4.0` |
+| `cors` | Backend | `2.8.6` |
+| `express` | Backend | `5.2.1` |
+| `@testing-library/dom` | Frontend | `10.4.1` |
+| `@testing-library/jest-dom` | Frontend | `6.9.1` |
+| `@testing-library/react` | Frontend | `16.3.2` |
+| `@testing-library/user-event` | Frontend | `13.5.0` |
+| `react` | Frontend | `19.2.8` |
+| `react-chessboard` | Frontend | `5.12.1` |
+| `react-dom` | Frontend | `19.2.8` |
+| `react-scripts` | Frontend | `5.0.1` |
+| `web-vitals` | Frontend | `2.1.4` |
+
+Use `npm ci` for a clean install from the lockfiles. Avoid manually changing dependency versions without regenerating and reviewing the corresponding lockfile.
+
 ## Repository Layout
 
 ```text
