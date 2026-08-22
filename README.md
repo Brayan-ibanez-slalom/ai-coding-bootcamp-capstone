@@ -251,6 +251,15 @@ npm run build
 
 The generated `frontend/build` directory contains static assets. A production deployment needs a static file host for those assets and a separately hosted Node API, with `REACT_APP_BACKEND_URL` configured to the deployed API origin.
 
+## Team Guidelines
+
+Project standards live in [`guidelines/`](guidelines/):
+
+- [UI design guidelines](guidelines/UI_DESIGN.md) cover color, typography, spacing, shapes, borders, interaction states, responsive behavior, and accessibility.
+- [Testing guidelines](guidelines/TESTING.md) define the automated checks, browser smoke test, API verification, and pre-push expectations.
+
+The testing standard requires the app to be started and exercised in a browser before pushing user-facing changes. This complements, rather than replaces, the frontend test suite and production build.
+
 ## Future Improvements
 
 1. Replace `stubEvaluate` with Stockfish or another engine and expose depth/time controls.
