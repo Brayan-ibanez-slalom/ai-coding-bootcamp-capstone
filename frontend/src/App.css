@@ -57,6 +57,38 @@ body {
   gap: 20px;
 }
 
+.game-controls {
+  display: flex;
+  width: min(480px, 100%);
+  gap: 12px;
+}
+
+.game-controls label {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 6px;
+  color: #94a3b8;
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+.game-controls select {
+  min-height: 40px;
+  padding: 0 10px;
+  background: #0f172a;
+  color: #e2e8f0;
+  border: 1px solid #334155;
+  border-radius: 6px;
+  font: inherit;
+  cursor: pointer;
+}
+
+.game-controls select:focus-visible {
+  outline: 2px solid #f97316;
+  outline-offset: 2px;
+}
+
 .board-wrapper {
   padding: 16px;
   background-color: #111827;
@@ -206,4 +238,17 @@ body {
   color: #475569;
   font-size: 0.9rem;
   padding: 20px 24px;
+}
+
+.error-message {
+  padding: 20px 24px;
+  color: #fca5a5;
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+@media (max-width: 560px) {
+  .game-controls {
+    flex-direction: column;
+  }
 }

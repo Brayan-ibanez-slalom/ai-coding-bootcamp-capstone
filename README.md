@@ -164,6 +164,10 @@ Open `http://localhost:3000`. The frontend uses `REACT_APP_BACKEND_URL` when pro
 | --- | --- | --- | --- |
 | `PORT` | Backend | `4000` | Changes the Express listening port. |
 | `REACT_APP_BACKEND_URL` | Frontend | `http://localhost:4000` | Changes the API base URL at build/start time. |
+| `AWS_REGION` | Backend | `us-east-1` | AWS region used for Bedrock requests. |
+| `BEDROCK_MODEL_ID` | Backend | `amazon.nova-lite-v1:0` | Bedrock model used for the AI opponent. |
+
+AWS credentials must remain server-side in the developer's AWS credential chain or in the ignored `backend/.env` file. Never put AWS access keys or Bedrock credentials in frontend code or `REACT_APP_*` variables. The AI opponent requires AWS Bedrock access; without valid credentials, the application keeps the board usable but reports that the AI opponent is unavailable.
 
 Example:
 

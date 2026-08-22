@@ -43,6 +43,15 @@ function FeedbackPanel({ feedback, loading }) {
     );
   }
 
+  if (feedback.error) {
+    return (
+      <div className="feedback-panel">
+        <h2 className="panel-title">Move Feedback</h2>
+        <p className="error-message">{feedback.error}</p>
+      </div>
+    );
+  }
+
   const { moveSAN, moveQuality, scoreBefore, scoreAfter, scoreDiff, bestMove, explanation } = feedback;
 
   return (
@@ -83,15 +92,48 @@ function FeedbackPanel({ feedback, loading }) {
 
 export default function App() {
   const [game, setGame] = useState(new Chess().fen());
+  const [playerColor, setPlayerColor] = useState('white');
+  const [difficulty, setDifficulty] = useState('beginner');
   const [feedback, setFeedback] = useState(null);
   const [loading, setLoading] = useState(false);
   const [lastMoveSquares, setLastMoveSquares] = useState({});
+
+  const playAiTurn = useCallback(async (position, selectedDifficulty) => {
+    setLoading(true);
+    try {
+      const response = await fetch(`${BACKEND_URL}/api/ai-move`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ fen: position, difficulty: selectedDifficulty }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error);
+
+      const aiGame = new Chess(position);
+      const aiMove = aiGame.move(data.moveSAN);
+      setGame(aiGame.fen());
+      setFeedback({
+        moveSAN: aiMove.san,
+        moveQuality: 'ai move',
+        scoreBefore: 0,
+        scoreAfter: 0,
+        scoreDiff: 0,
+        bestMove: aiMove.san,
+        explanation: data.advice,
+      });
+    } catch (error) {
+      setFeedback({ error: error.message || 'AI opponent unavailable.' });
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   const onDrop = useCallback(
     ({ sourceSquare, targetSquare }) => {
       if (!targetSquare) return false;
 
       const gameCopy = new Chess(game);
+      if (gameCopy.turn() !== playerColor[0]) return false;
       const fenBefore = gameCopy.fen();
 
       let move;
@@ -125,19 +167,24 @@ export default function App() {
         })
         .finally(() => {
           setLoading(false);
+          if (gameCopy.turn() !== playerColor[0]) {
+            playAiTurn(gameCopy.fen(), difficulty);
+          }
         });
 
       return true;
     },
-    [game]
+    [difficulty, game, playAiTurn, playerColor]
   );
 
   const resetGame = useCallback(() => {
-    setGame(new Chess().fen());
+    const initialPosition = new Chess().fen();
+    setGame(initialPosition);
     setFeedback(null);
     setLastMoveSquares({});
     setLoading(false);
-  }, []);
+    if (playerColor === 'black') playAiTurn(initialPosition, difficulty);
+  }, [difficulty, playAiTurn, playerColor]);
 
   return (
     <div className="app-root">
@@ -148,6 +195,23 @@ export default function App() {
 
       <main className="app-main">
         <div className="board-column">
+          <div className="game-controls" aria-label="Game settings">
+            <label>
+              Your color
+              <select value={playerColor} onChange={event => setPlayerColor(event.target.value)}>
+                <option value="white">White</option>
+                <option value="black">Black</option>
+              </select>
+            </label>
+            <label>
+              Maximum difficulty
+              <select value={difficulty} onChange={event => setDifficulty(event.target.value)}>
+                <option value="beginner">Beginner</option>
+                <option value="intermediate">Intermediate</option>
+                <option value="advanced">Advanced</option>
+              </select>
+            </label>
+          </div>
           <div className="board-wrapper">
             <Chessboard
               options={{

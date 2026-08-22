@@ -1,8 +1,0 @@
-# This is a Node.js project; dependencies are managed with npm.
-#
-# Backend dependencies: backend/package.json
-# Frontend dependencies: frontend/package.json
-#
-# Use the lockfiles for reproducible installs:
-#   cd backend && npm ci
-#   cd frontend && npm ci
