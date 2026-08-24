@@ -286,6 +286,7 @@ Project standards live in [`guidelines/`](guidelines/):
 
 - [UI design guidelines](guidelines/UI_DESIGN.md) cover color, typography, spacing, shapes, borders, interaction states, responsive behavior, and accessibility.
 - [Testing guidelines](guidelines/TESTING.md) define the automated checks, browser smoke test, API verification, and pre-push expectations.
+- [LLM agent handoff](guidelines/LLM_AGENT_HANDOFF.md) defines the exact project behavior and contracts for reproducing this app with another LLM coding agent.
 
 The testing standard requires the app to be started and exercised in a browser before pushing user-facing changes. This complements, rather than replaces, the frontend test suite and production build.
 
