@@ -140,6 +140,67 @@ body {
   overflow: hidden;
 }
 
+.game-result {
+  padding: 28px 24px;
+  text-align: center;
+}
+
+.game-result h2 {
+  margin-bottom: 12px;
+  color: #f1f5f9;
+  font-size: 1.25rem;
+}
+
+.game-result p {
+  color: #cbd5e1;
+  line-height: 1.5;
+}
+
+.total-feedback {
+  margin-top: 24px;
+  padding-top: 20px;
+  border-top: 1px solid #334155;
+  text-align: left;
+}
+
+.total-feedback h3 {
+  margin-bottom: 10px;
+  color: #f1f5f9;
+  font-size: 0.9rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.total-feedback p {
+  font-size: 0.88rem;
+}
+
+.error-summary {
+  margin-top: 10px;
+  color: #fca5a5 !important;
+}
+
+.improvement-summary {
+  margin-top: 14px;
+  padding: 10px 12px;
+  background-color: #172554;
+  border-left: 3px solid #60a5fa;
+}
+
+.game-result.win {
+  border-top: 4px solid #22c55e;
+}
+
+.game-result.draw {
+  border-top: 4px solid #eab308;
+}
+
+.result-prompt {
+  margin-top: 16px;
+  color: #94a3b8 !important;
+  font-size: 0.85rem;
+}
+
 .panel-section {
   padding: 20px 24px;
   border-bottom: 1px solid #1e293b;
@@ -164,6 +225,10 @@ body {
   letter-spacing: 0.08em;
   color: #64748b;
   margin-bottom: 12px;
+}
+
+.advice-heading {
+  margin-top: 20px;
 }
 
 /* ── Move info ── */
@@ -194,6 +259,11 @@ body {
   color: #0f172a;
   text-transform: capitalize;
   letter-spacing: 0.02em;
+}
+
+.ai-badge {
+  background-color: #3b82f6;
+  color: #eff6ff;
 }
 
 .best-move-row {

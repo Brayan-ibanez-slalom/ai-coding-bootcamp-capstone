@@ -1,5 +1,6 @@
 # Local project memory and machine-specific notes
 .project-memory/
 backend/.env
+backend/.env.example
 backend/package-lock.json
 frontend/package-lock.json

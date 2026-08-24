@@ -165,9 +165,12 @@ Open `http://localhost:3000`. The frontend uses `REACT_APP_BACKEND_URL` when pro
 | `PORT` | Backend | `4000` | Changes the Express listening port. |
 | `REACT_APP_BACKEND_URL` | Frontend | `http://localhost:4000` | Changes the API base URL at build/start time. |
 | `AWS_REGION` | Backend | `us-east-1` | AWS region used for Bedrock requests. |
-| `BEDROCK_MODEL_ID` | Backend | `amazon.nova-lite-v1:0` | Bedrock model used for the AI opponent. |
+| `BEDROCK_MODEL_ID` | Backend | `amazon.nova-pro-v1:0` | Bedrock model used for the AI opponent. |
+| `AWS_BEARER_TOKEN_BEDROCK` | Backend | none | Temporary Bedrock bearer token used for local development. |
 
-AWS credentials must remain server-side in the developer's AWS credential chain or in the ignored `backend/.env` file. Never put AWS access keys or Bedrock credentials in frontend code or `REACT_APP_*` variables. The AI opponent requires AWS Bedrock access; without valid credentials, the application keeps the board usable but reports that the AI opponent is unavailable.
+For local development, copy `backend/.env.example` to `backend/.env` and replace the placeholder with a new token. The backend loads that ignored file with `dotenv`. AWS credentials must remain server-side; never put AWS access keys or Bedrock credentials in frontend code or `REACT_APP_*` variables. The AI opponent requires AWS Bedrock access; if Bedrock is unavailable or returns an invalid move, the backend validates and plays a legal fallback move so the match can continue, and the UI explains that fallback was used.
+
+Replace the Bedrock token immediately if it is exposed, revoked, suspected to be compromised, or no longer works. Replace it before its expiration time and during your organization's scheduled credential rotation. After updating `backend/.env`, restart the backend so the new token is loaded. The token provided in chat or any public channel must be considered exposed and replaced.
 
 Example:
 

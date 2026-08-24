@@ -15,6 +15,11 @@ function qualityColor(quality) {
   }
 }
 
+function moveHighlight(quality, actor) {
+  if (actor === 'ai') return 'rgba(59, 130, 246, 0.35)';
+  return `${qualityColor(quality)}80`;
+}
+
 function ScoreBar({ label, value }) {
   return (
     <div className="score-row">
@@ -24,7 +29,79 @@ function ScoreBar({ label, value }) {
   );
 }
 
-function FeedbackPanel({ feedback, loading }) {
+export function getGameResult(chess) {
+  if (chess.isCheckmate()) {
+    const winner = chess.turn() === 'w' ? 'Black' : 'White';
+    return { type: 'win', winner, message: `${winner} wins by checkmate!` };
+  }
+
+  if (chess.isStalemate()) {
+    return { type: 'draw', message: 'Draw by stalemate. Great defense from both sides!' };
+  }
+
+  if (chess.isThreefoldRepetition()) {
+    return { type: 'draw', message: 'Draw by threefold repetition.' };
+  }
+
+  if (chess.isInsufficientMaterial()) {
+    return { type: 'draw', message: 'Draw by insufficient material.' };
+  }
+
+  if (chess.isDraw()) {
+    return { type: 'draw', message: 'The game is a draw.' };
+  }
+
+  return null;
+}
+
+export function getResultMessage(result, playerColor) {
+  if (result.type !== 'win') return result.message;
+
+  const playerName = playerColor === 'white' ? 'White' : 'Black';
+  const playerWon = result.winner === playerName;
+  return `${result.message} ${playerWon ? 'Congratulations!' : 'Keep practicing and review the key moments from this game.'}`;
+}
+
+function GameResult({ result, moveHistory, playerColor }) {
+  if (!result) return null;
+
+  const humanMoves = moveHistory.filter(move => move.actor === 'human');
+  const errors = humanMoves.filter(move => ['inaccuracy', 'mistake', 'blunder'].includes(move.quality));
+  const goodMoves = humanMoves.filter(move => move.quality === 'good');
+  const improvement = errors.some(move => move.quality === 'blunder')
+    ? 'Focus on checking your opponent\'s immediate threats before every move.'
+    : errors.some(move => move.quality === 'mistake')
+      ? 'Compare candidate moves and look for checks, captures, and threats.'
+      : 'Keep practicing your opening principles and review your candidate moves.';
+  const resultMessage = getResultMessage(result, playerColor);
+
+  return (
+    <section className={`game-result ${result.type}`} role="status">
+      <h2>{result.type === 'win' ? 'Game Complete' : 'Match Drawn'}</h2>
+      <p>{resultMessage}</p>
+      <div className="total-feedback">
+        <h3>Total Feedback</h3>
+        <p>You played {humanMoves.length} move{humanMoves.length === 1 ? '' : 's'}.</p>
+        <p>{goodMoves.length} good, {errors.length} move{errors.length === 1 ? '' : 's'} to review.</p>
+        {errors.length > 0 && (
+          <p className="error-summary">Review: {errors.map(move => `${move.san} (${move.quality})`).join(', ')}</p>
+        )}
+        <p className="improvement-summary"><strong>Next focus:</strong> {improvement}</p>
+      </div>
+      <p className="result-prompt">Start a new game with Reset Game.</p>
+    </section>
+  );
+}
+
+function FeedbackPanel({ feedback, loading, gameResult, moveHistory, playerColor }) {
+  if (gameResult) {
+    return (
+      <div className="feedback-panel">
+        <GameResult result={gameResult} moveHistory={moveHistory} playerColor={playerColor} />
+      </div>
+    );
+  }
+
   if (loading) {
     return (
       <div className="feedback-panel">
@@ -52,7 +129,34 @@ function FeedbackPanel({ feedback, loading }) {
     );
   }
 
-  const { moveSAN, moveQuality, scoreBefore, scoreAfter, scoreDiff, bestMove, explanation } = feedback;
+  const {
+    moveSAN,
+    moveQuality,
+    scoreBefore,
+    scoreAfter,
+    scoreDiff,
+    bestMove,
+    explanation,
+    improvementAdvice,
+  } = feedback;
+
+  if (feedback.actor === 'ai') {
+    return (
+      <div className="feedback-panel">
+        <section className="panel-section">
+          <h2 className="panel-title">AI Move</h2>
+          <div className="move-info-row">
+            <span className="move-san"><strong>Move:</strong> {moveSAN}</span>
+            <span className="quality-badge ai-badge">opponent</span>
+          </div>
+        </section>
+        <section className="panel-section">
+          <h3 className="section-heading">AI Advice</h3>
+          <p className="explanation">{explanation}</p>
+        </section>
+      </div>
+    );
+  }
 
   return (
     <div className="feedback-panel">
@@ -85,6 +189,8 @@ function FeedbackPanel({ feedback, loading }) {
       <section className="panel-section">
         <h3 className="section-heading">Coach Explanation</h3>
         <p className="explanation">{explanation}</p>
+        <h3 className="section-heading advice-heading">How to Improve</h3>
+        <p className="explanation">{improvementAdvice}</p>
       </section>
     </div>
   );
@@ -97,6 +203,8 @@ export default function App() {
   const [feedback, setFeedback] = useState(null);
   const [loading, setLoading] = useState(false);
   const [lastMoveSquares, setLastMoveSquares] = useState({});
+  const [gameResult, setGameResult] = useState(null);
+  const [moveHistory, setMoveHistory] = useState([]);
 
   const playAiTurn = useCallback(async (position, selectedDifficulty) => {
     setLoading(true);
@@ -112,7 +220,14 @@ export default function App() {
       const aiGame = new Chess(position);
       const aiMove = aiGame.move(data.moveSAN);
       setGame(aiGame.fen());
+      setGameResult(getGameResult(aiGame));
+      setMoveHistory(history => [...history, { actor: 'ai', san: aiMove.san }]);
+      setLastMoveSquares({
+        [aiMove.from]: { background: moveHighlight('ai move', 'ai') },
+        [aiMove.to]: { background: moveHighlight('ai move', 'ai') },
+      });
       setFeedback({
+        actor: 'ai',
         moveSAN: aiMove.san,
         moveQuality: 'ai move',
         scoreBefore: 0,
@@ -127,6 +242,19 @@ export default function App() {
       setLoading(false);
     }
   }, []);
+
+  const handleColorChange = useCallback(event => {
+    const selectedColor = event.target.value;
+    const initialPosition = new Chess().fen();
+    setPlayerColor(selectedColor);
+    setGame(initialPosition);
+    setFeedback(null);
+    setLastMoveSquares({});
+    setLoading(false);
+    setGameResult(null);
+    setMoveHistory([]);
+    if (selectedColor === 'black') playAiTurn(initialPosition, difficulty);
+  }, [difficulty, playAiTurn]);
 
   const onDrop = useCallback(
     ({ sourceSquare, targetSquare }) => {
@@ -146,6 +274,8 @@ export default function App() {
 
       const fenAfter = gameCopy.fen();
       setGame(gameCopy.fen());
+      const moveResult = getGameResult(gameCopy);
+      setGameResult(moveResult);
       setLastMoveSquares({
         [sourceSquare]: { background: 'rgba(234,179,8,0.35)' },
         [targetSquare]: { background: 'rgba(234,179,8,0.35)' },
@@ -160,6 +290,15 @@ export default function App() {
       })
         .then(async (res) => {
           const data = await res.json();
+          setMoveHistory(history => [...history, {
+            actor: 'human',
+            san: move.san,
+            quality: data.moveQuality,
+          }]);
+          setLastMoveSquares({
+            [sourceSquare]: { background: moveHighlight(data.moveQuality, 'human') },
+            [targetSquare]: { background: moveHighlight(data.moveQuality, 'human') },
+          });
           setFeedback({ ...data, moveSAN: move.san });
         })
         .catch(() => {
@@ -167,7 +306,7 @@ export default function App() {
         })
         .finally(() => {
           setLoading(false);
-          if (gameCopy.turn() !== playerColor[0]) {
+          if (!moveResult && gameCopy.turn() !== playerColor[0]) {
             playAiTurn(gameCopy.fen(), difficulty);
           }
         });
@@ -183,6 +322,8 @@ export default function App() {
     setFeedback(null);
     setLastMoveSquares({});
     setLoading(false);
+    setGameResult(null);
+    setMoveHistory([]);
     if (playerColor === 'black') playAiTurn(initialPosition, difficulty);
   }, [difficulty, playAiTurn, playerColor]);
 
@@ -198,7 +339,7 @@ export default function App() {
           <div className="game-controls" aria-label="Game settings">
             <label>
               Your color
-              <select value={playerColor} onChange={event => setPlayerColor(event.target.value)}>
+              <select value={playerColor} onChange={handleColorChange}>
                 <option value="white">White</option>
                 <option value="black">Black</option>
               </select>
@@ -216,6 +357,7 @@ export default function App() {
             <Chessboard
               options={{
                 position: game,
+                boardOrientation: playerColor,
                 onPieceDrop: onDrop,
                 boardWidth: 480,
                 customSquareStyles: lastMoveSquares,
@@ -234,7 +376,13 @@ export default function App() {
         </div>
 
         <div className="panel-column">
-          <FeedbackPanel feedback={feedback} loading={loading} />
+          <FeedbackPanel
+            feedback={feedback}
+            loading={loading}
+            gameResult={gameResult}
+            moveHistory={moveHistory}
+            playerColor={playerColor}
+          />
         </div>
       </main>
     </div>
