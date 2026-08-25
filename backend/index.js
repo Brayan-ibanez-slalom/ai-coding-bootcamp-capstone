@@ -94,6 +94,8 @@ function chooseFallbackMove(fen, difficulty) {
       const candidate = new Chess(fen);
       const applied = candidate.move(move);
       let score = 0;
+      const positionScore = evaluatePosition(candidate.fen());
+      score += candidate.turn() === 'w' ? positionScore : -positionScore;
       if (candidate.isCheckmate()) score += 100000;
       if (applied.san.includes('+')) score += 5000;
       if (applied.captured) score += 1000 + (pieceValues[applied.captured] || 0);
@@ -121,7 +123,7 @@ function extractJson(text) {
   return JSON.parse(cleaned);
 }
 
-async function requestAiMove(fen, difficulty, retry = false) {
+async function requestAiMove(fen, difficulty, moveHistory = [], retry = false) {
   const chess = new Chess(fen);
   const legalMoves = chess.moves({ verbose: true }).map(move => (
     `${move.from}${move.to}${move.promotion || ''}`
@@ -132,8 +134,12 @@ async function requestAiMove(fen, difficulty, retry = false) {
     'Adapt to the player over time when move history is provided, but never exceed the selected maximum.',
     `It is ${chess.turn() === 'w' ? 'White' : 'Black'} to move.`,
     `Current position in FEN: ${fen}`,
+    `Recent move history: ${moveHistory.slice(-12).join(' ') || 'No moves yet.'}`,
     `Choose exactly one move from this legal UCI list: ${legalMoves.join(', ')}`,
     'Return only valid JSON with this exact shape: {"move":"e7e5","advice":"one short helpful sentence"}.',
+    difficulty === 'advanced'
+      ? 'Before answering, silently compare candidate moves for checks, captures, threats, king safety, development, and the opponent\'s best reply. Prefer forcing lines and tactical accuracy over a familiar opening move.'
+      : '',
     'The move must be copied exactly from the legal UCI list. Do not return a move for the other color.',
     retry ? 'Your previous answer was invalid. Re-check the side to move and select only from the legal list.' : '',
   ].join('\n');
@@ -162,7 +168,7 @@ async function requestAiMove(fen, difficulty, retry = false) {
 
     return { moveSAN: move.san, advice: result.advice || 'The AI played a move within your selected difficulty.' };
   } catch (error) {
-    if (!retry) return requestAiMove(fen, difficulty, true);
+    if (!retry) return requestAiMove(fen, difficulty, moveHistory, true);
     throw error;
   }
 }
@@ -212,13 +218,13 @@ app.post('/api/evaluate-move', (req, res) => {
 });
 
 app.post('/api/ai-move', async (req, res) => {
-  const { fen, difficulty = 'beginner' } = req.body;
+  const { fen, difficulty = 'beginner', moveHistory = [] } = req.body;
   if (!fen || !difficultyInstructions[difficulty]) {
     return res.status(400).json({ error: 'fen and a valid difficulty are required' });
   }
 
   try {
-    const result = await requestAiMove(fen, difficulty);
+    const result = await requestAiMove(fen, difficulty, moveHistory);
     res.json(result);
   } catch (error) {
     console.error('AI move unavailable:', error.message);

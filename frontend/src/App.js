@@ -276,13 +276,17 @@ export default function App() {
     return () => window.removeEventListener('resize', updateBoardWidth);
   }, []);
 
-  const playAiTurn = useCallback(async (position, selectedDifficulty) => {
+  const playAiTurn = useCallback(async (position, selectedDifficulty, history) => {
     setLoading(true);
     try {
       const response = await fetch(`${BACKEND_URL}/api/ai-move`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ fen: position, difficulty: selectedDifficulty }),
+        body: JSON.stringify({
+          fen: position,
+          difficulty: selectedDifficulty,
+          moveHistory: history.map(move => move.san),
+        }),
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error);
@@ -337,7 +341,7 @@ export default function App() {
     setMoveHistory([]);
     setStrategyFocus('Complete a game to receive a strategy focus.');
     setGameStarted(true);
-    if (playerColor === 'black') playAiTurn(initialPosition, difficulty);
+    if (playerColor === 'black') playAiTurn(initialPosition, difficulty, []);
   }, [difficulty, playAiTurn, playerColor]);
 
   const onDrop = useCallback(
@@ -411,13 +415,13 @@ export default function App() {
         .finally(() => {
           setLoading(false);
           if (!moveResult && gameCopy.turn() !== playerColor[0]) {
-            playAiTurn(gameCopy.fen(), difficulty);
+            playAiTurn(gameCopy.fen(), difficulty, [...moveHistory, { actor: 'human', san: move.san }]);
           }
         });
 
       return true;
     },
-    [difficulty, game, gameStarted, playAiTurn, playerColor]
+    [difficulty, game, gameStarted, moveHistory, playAiTurn, playerColor]
   );
 
   const resetGame = useCallback(() => {

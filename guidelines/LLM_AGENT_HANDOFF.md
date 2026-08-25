@@ -108,7 +108,7 @@ Request:
 
 Allowed difficulties: `beginner`, `intermediate`, `advanced`.
 
-The backend sends the side to move, FEN, difficulty ceiling, and complete legal UCI move list to Bedrock. Advanced mode requests at least five-ply calculation, comparison of at least five candidates, tactical refutations, and no intentionally passive inaccuracies. It uses low temperature and a larger response budget than Beginner. It expects strict JSON:
+The backend sends the side to move, FEN, recent SAN move history, difficulty ceiling, and complete legal UCI move list to Bedrock. Advanced mode requests at least five-ply calculation, comparison of at least five candidates, tactical refutations, and no intentionally passive inaccuracies. It uses low temperature and a larger response budget than Beginner. It expects strict JSON:
 
 ```json
 {
@@ -117,7 +117,7 @@ The backend sends the side to move, FEN, difficulty ceiling, and complete legal 
 }
 ```
 
-The proposed move is validated with `chess.js` before returning SAN to the frontend. Retry one invalid/empty response. If Bedrock still fails, return a strategically prioritized legal `chess.js` move with `aiFallback: true` and explicit fallback advice. The fallback prioritizes checkmate, checks, captures, promotions, castling, central moves, and active development. Return HTTP 503 only when no legal fallback exists.
+The proposed move is validated with `chess.js` before returning SAN to the frontend. Retry one invalid/empty response. If Bedrock still fails, return a strategically prioritized legal `chess.js` move with `aiFallback: true` and explicit fallback advice. The fallback scores checkmate, checks, captures, promotions, castling, central moves, active development, and the resulting one-ply position. Return HTTP 503 only when no legal fallback exists.
 
 ## Frontend State Model
 
