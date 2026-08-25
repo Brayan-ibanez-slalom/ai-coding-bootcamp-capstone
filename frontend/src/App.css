@@ -47,6 +47,8 @@ body {
   align-items: flex-start;
   justify-content: center;
   flex-wrap: wrap;
+  max-width: 1180px;
+  margin: 0 auto;
 }
 
 /* ── Board column ── */
@@ -128,8 +130,8 @@ body {
 /* ── Panel column ── */
 .panel-column {
   flex: 1;
-  min-width: 280px;
-  max-width: 380px;
+  min-width: 420px;
+  max-width: 520px;
 }
 
 /* ── Feedback panel ── */
@@ -173,6 +175,30 @@ body {
 
 .total-feedback p {
   font-size: 0.88rem;
+}
+
+.review-list {
+  margin-top: 16px;
+  padding-top: 12px;
+  border-top: 1px solid #334155;
+}
+
+.review-list > strong {
+  display: block;
+  margin-bottom: 8px;
+  font-size: 0.85rem;
+}
+
+.good-list > strong {
+  color: #86efac;
+}
+
+.error-list > strong {
+  color: #fca5a5;
+}
+
+.error-list p + p {
+  margin-top: 10px;
 }
 
 .error-summary {
@@ -318,6 +344,15 @@ body {
 }
 
 @media (max-width: 560px) {
+  .app-main {
+    padding: 24px 16px;
+  }
+
+  .panel-column {
+    min-width: 0;
+    width: 100%;
+  }
+
   .game-controls {
     flex-direction: column;
   }

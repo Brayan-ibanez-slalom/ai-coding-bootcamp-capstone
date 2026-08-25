@@ -10,6 +10,8 @@ The project is intentionally compact: it demonstrates a React client, a JSON API
 - Allows pieces to be moved by drag and drop.
 - Rejects illegal moves in the browser before making an API request.
 - Automatically promotes pawns to queens when a promotion is required.
+- Lets the player choose a side and maximum difficulty before clicking `Start Game`.
+- Places the selected player color at the bottom of the board and lets the AI open when Black is selected.
 - Highlights the source and destination squares of the latest move.
 - Sends the position before and after the move to the backend.
 - Displays the material evaluation before and after the move, the score difference, a quality label, and a short explanation.

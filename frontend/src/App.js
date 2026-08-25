@@ -68,11 +68,14 @@ function GameResult({ result, moveHistory, playerColor }) {
   const humanMoves = moveHistory.filter(move => move.actor === 'human');
   const errors = humanMoves.filter(move => ['inaccuracy', 'mistake', 'blunder'].includes(move.quality));
   const goodMoves = humanMoves.filter(move => move.quality === 'good');
-  const improvement = errors.some(move => move.quality === 'blunder')
-    ? 'Focus on checking your opponent\'s immediate threats before every move.'
-    : errors.some(move => move.quality === 'mistake')
-      ? 'Compare candidate moves and look for checks, captures, and threats.'
-      : 'Keep practicing your opening principles and review your candidate moves.';
+  const blunders = errors.filter(move => move.quality === 'blunder').length;
+  const mistakes = errors.filter(move => move.quality === 'mistake').length;
+  const inaccuracies = errors.filter(move => move.quality === 'inaccuracy').length;
+  const strategies = [];
+  if (blunders > 0) strategies.push('Before moving, check every opponent check, capture, and threat.');
+  if (mistakes > 0) strategies.push('Compare at least two candidate moves and ask what your opponent will do next.');
+  if (inaccuracies > 0) strategies.push('Improve your move selection by checking king safety, development, and center control.');
+  if (strategies.length === 0) strategies.push('Keep reviewing forcing moves and look for checks, captures, and threats each turn.');
   const resultMessage = getResultMessage(result, playerColor);
 
   return (
@@ -83,10 +86,26 @@ function GameResult({ result, moveHistory, playerColor }) {
         <h3>Total Feedback</h3>
         <p>You played {humanMoves.length} move{humanMoves.length === 1 ? '' : 's'}.</p>
         <p>{goodMoves.length} good, {errors.length} move{errors.length === 1 ? '' : 's'} to review.</p>
-        {errors.length > 0 && (
-          <p className="error-summary">Review: {errors.map(move => `${move.san} (${move.quality})`).join(', ')}</p>
+        {goodMoves.length > 0 && (
+          <div className="review-list good-list">
+            <strong>Good moves</strong>
+            <p>{goodMoves.map(move => `${move.san} (${move.explanation})`).join(' ')}</p>
+          </div>
         )}
-        <p className="improvement-summary"><strong>Next focus:</strong> {improvement}</p>
+        {errors.length > 0 && (
+          <div className="review-list error-list">
+            <strong>Moves to review</strong>
+            {errors.map(move => (
+              <p key={`${move.san}-${move.explanation}`}>
+                <b>{move.san} - {move.quality}:</b> {move.explanation} {move.improvementAdvice}
+              </p>
+            ))}
+          </div>
+        )}
+        <div className="improvement-summary">
+          <strong>Strategy focus</strong>
+          {strategies.map(strategy => <p key={strategy}>{strategy}</p>)}
+        </div>
       </div>
       <p className="result-prompt">Start a new game with Reset Game.</p>
     </section>
@@ -115,7 +134,7 @@ function FeedbackPanel({ feedback, loading, gameResult, moveHistory, playerColor
     return (
       <div className="feedback-panel">
         <h2 className="panel-title">Move Feedback</h2>
-        <p className="muted">Make a move to see feedback.</p>
+        <p className="muted">Start a game to play and receive feedback.</p>
       </div>
     );
   }
@@ -200,6 +219,7 @@ export default function App() {
   const [game, setGame] = useState(new Chess().fen());
   const [playerColor, setPlayerColor] = useState('white');
   const [difficulty, setDifficulty] = useState('beginner');
+  const [gameStarted, setGameStarted] = useState(false);
   const [feedback, setFeedback] = useState(null);
   const [loading, setLoading] = useState(false);
   const [lastMoveSquares, setLastMoveSquares] = useState({});
@@ -245,20 +265,29 @@ export default function App() {
 
   const handleColorChange = useCallback(event => {
     const selectedColor = event.target.value;
-    const initialPosition = new Chess().fen();
     setPlayerColor(selectedColor);
+    if (!gameStarted) return;
+    setGameStarted(false);
+    setFeedback(null);
+    setLastMoveSquares({});
+    setGameResult(null);
+    setMoveHistory([]);
+  }, [gameStarted]);
+
+  const startGame = useCallback(() => {
+    const initialPosition = new Chess().fen();
     setGame(initialPosition);
     setFeedback(null);
     setLastMoveSquares({});
-    setLoading(false);
     setGameResult(null);
     setMoveHistory([]);
-    if (selectedColor === 'black') playAiTurn(initialPosition, difficulty);
-  }, [difficulty, playAiTurn]);
+    setGameStarted(true);
+    if (playerColor === 'black') playAiTurn(initialPosition, difficulty);
+  }, [difficulty, playAiTurn, playerColor]);
 
   const onDrop = useCallback(
     ({ sourceSquare, targetSquare }) => {
-      if (!targetSquare) return false;
+      if (!gameStarted || !targetSquare) return false;
 
       const gameCopy = new Chess(game);
       if (gameCopy.turn() !== playerColor[0]) return false;
@@ -275,7 +304,6 @@ export default function App() {
       const fenAfter = gameCopy.fen();
       setGame(gameCopy.fen());
       const moveResult = getGameResult(gameCopy);
-      setGameResult(moveResult);
       setLastMoveSquares({
         [sourceSquare]: { background: 'rgba(234,179,8,0.35)' },
         [targetSquare]: { background: 'rgba(234,179,8,0.35)' },
@@ -283,6 +311,13 @@ export default function App() {
 
       setLoading(true);
       setFeedback(null);
+      const moveId = `${Date.now()}-${sourceSquare}-${targetSquare}`;
+      setMoveHistory(history => [...history, {
+        id: moveId,
+        actor: 'human',
+        san: move.san,
+        quality: null,
+      }]);
       fetch(`${BACKEND_URL}/api/evaluate-move`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -290,19 +325,27 @@ export default function App() {
       })
         .then(async (res) => {
           const data = await res.json();
-          setMoveHistory(history => [...history, {
-            actor: 'human',
-            san: move.san,
-            quality: data.moveQuality,
-          }]);
+          setMoveHistory(history => history.map(historyMove => (
+            historyMove.id === moveId
+              ? {
+                ...historyMove,
+                quality: data.moveQuality,
+                explanation: data.explanation,
+                improvementAdvice: data.improvementAdvice,
+                scoreDiff: data.scoreDiff,
+              }
+              : historyMove
+          )));
           setLastMoveSquares({
             [sourceSquare]: { background: moveHighlight(data.moveQuality, 'human') },
             [targetSquare]: { background: moveHighlight(data.moveQuality, 'human') },
           });
           setFeedback({ ...data, moveSAN: move.san });
+          if (moveResult) setGameResult(moveResult);
         })
         .catch(() => {
           setFeedback({ error: 'Could not reach the backend.' });
+          if (moveResult) setGameResult(moveResult);
         })
         .finally(() => {
           setLoading(false);
@@ -313,7 +356,7 @@ export default function App() {
 
       return true;
     },
-    [difficulty, game, playAiTurn, playerColor]
+    [difficulty, game, gameStarted, playAiTurn, playerColor]
   );
 
   const resetGame = useCallback(() => {
@@ -324,8 +367,8 @@ export default function App() {
     setLoading(false);
     setGameResult(null);
     setMoveHistory([]);
-    if (playerColor === 'black') playAiTurn(initialPosition, difficulty);
-  }, [difficulty, playAiTurn, playerColor]);
+    setGameStarted(false);
+  }, []);
 
   return (
     <div className="app-root">
@@ -358,6 +401,7 @@ export default function App() {
               options={{
                 position: game,
                 boardOrientation: playerColor,
+                canDragPiece: ({ isSparePiece }) => gameStarted && !isSparePiece,
                 onPieceDrop: onDrop,
                 boardWidth: 480,
                 customSquareStyles: lastMoveSquares,
@@ -370,8 +414,8 @@ export default function App() {
               }}
             />
           </div>
-          <button className="reset-btn" onClick={resetGame}>
-            Reset Game
+          <button className="reset-btn" onClick={gameStarted ? resetGame : startGame}>
+            {gameStarted ? 'Reset Game' : 'Start Game'}
           </button>
         </div>
 

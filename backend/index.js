@@ -146,11 +146,16 @@ app.post('/api/ai-move', async (req, res) => {
       const fallbackMoves = fallbackGame.moves();
       const fallbackMove = fallbackMoves[0];
       if (!fallbackMove) throw new Error('No legal fallback move available');
+      const authenticationFailed = error.message.toLowerCase().includes('authentication')
+        || error.message.toLowerCase().includes('api key');
 
       res.json({
         moveSAN: fallbackMove,
-        advice: 'The AI was temporarily unavailable, so a legal fallback move was played.',
+        advice: authenticationFailed
+          ? 'The Bedrock key is invalid or expired, so a legal fallback move was played. Update backend/.env and restart the backend.'
+          : 'The AI was temporarily unavailable, so a legal fallback move was played.',
         aiFallback: true,
+        fallbackReason: authenticationFailed ? 'authentication' : 'service',
       });
     } catch {
       res.status(503).json({ error: 'AI opponent unavailable. Check the Bedrock configuration.' });

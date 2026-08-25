@@ -11,10 +11,11 @@ The experience should be direct and usable on first load:
 1. The player chooses White or Black.
 2. The player selects a maximum difficulty: Beginner, Intermediate, or Advanced.
 3. The chosen player color stays at the bottom of the board.
-4. If the player chooses Black, the AI makes the first White move.
-5. The human can drag legal pieces only on the human turn.
-6. The AI responds after each human move.
-7. The match ends visibly on checkmate or draw.
+4. The player clicks `Start Game` after selecting settings.
+5. If the player chooses Black, the AI makes the first White move.
+6. The human can drag legal pieces only on the human turn.
+7. The AI responds after each human move.
+8. The match ends visibly on checkmate or draw.
 
 ## Exact Stack
 
@@ -229,15 +230,16 @@ node --check index.js
 Manual checks:
 
 1. Choose White, move `e2` to `e4`, and confirm the piece remains on `e4`.
-2. Choose Black and confirm Black is at the bottom and AI makes the opening move.
-3. Play at least three human/AI turns.
-4. Confirm AI advice is separate from human coaching.
-5. Trigger or simulate a Bedrock failure and confirm a legal fallback continues the match.
-6. Verify Scholar's Mate reports a White win and congratulates the White player.
-7. Verify Fool's Mate reports a Black win and does not congratulate a White player.
-8. Verify a draw reports a neutral draw message.
-9. Confirm final feedback totals and error highlights are visible.
-10. Run `git diff --check` before committing.
+2. Choose settings, click `Start Game`, and confirm the board becomes interactive.
+3. Choose Black, click `Start Game`, and confirm Black is at the bottom and AI makes the opening move.
+4. Play at least three human/AI turns.
+5. Confirm AI advice is separate from human coaching.
+6. Trigger or simulate a Bedrock failure and confirm a legal fallback continues the match.
+7. Verify Scholar's Mate reports a White win and congratulates the White player.
+8. Verify Fool's Mate reports a Black win and does not congratulate a White player.
+9. Verify a draw reports a neutral draw message.
+10. Confirm final feedback totals and error highlights are visible.
+11. Run `git diff --check` before committing.
 
 ## Agent Completion Criteria
 
