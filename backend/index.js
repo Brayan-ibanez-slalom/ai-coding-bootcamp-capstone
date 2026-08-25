@@ -9,11 +9,13 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-function stubEvaluate(fen) {
-  // Stub: count material for a rough score (centipawns)
+function evaluatePosition(fen) {
   const pieceValues = { p: 100, n: 320, b: 330, r: 500, q: 900, k: 0 };
   const chess = new Chess(fen);
   let score = 0;
+  const centerSquares = new Set(['d4', 'e4', 'd5', 'e5']);
+  const homeSquares = new Set(['b1', 'c1', 'f1', 'g1', 'b8', 'c8', 'f8', 'g8']);
+
   chess.board().forEach(row => {
     row.forEach(sq => {
       if (!sq) return;
@@ -21,14 +23,65 @@ function stubEvaluate(fen) {
       score += sq.color === 'w' ? val : -val;
     });
   });
+
+  chess.board().forEach((row, rankIndex) => {
+    row.forEach((sq, fileIndex) => {
+      if (!sq) return;
+      const square = `${String.fromCharCode(97 + fileIndex)}${8 - rankIndex}`;
+      const sign = sq.color === 'w' ? 1 : -1;
+      if (centerSquares.has(square)) score += sign * 18;
+      if (sq.type === 'n' || sq.type === 'b') {
+        if (!homeSquares.has(square)) score += sign * 12;
+      }
+    });
+  });
+
+  const fenParts = fen.split(' ');
+  const whiteTurn = new Chess(fenParts.map((part, index) => index === 1 ? 'w' : part).join(' '));
+  const blackTurn = new Chess(fenParts.map((part, index) => index === 1 ? 'b' : part).join(' '));
+  score += (whiteTurn.moves().length - blackTurn.moves().length) * 2;
+  if (!fen.split(' ')[2].includes('K') && !fen.split(' ')[2].includes('Q')) score += 25;
+  if (!fen.split(' ')[2].includes('k') && !fen.split(' ')[2].includes('q')) score -= 25;
+
   return score;
 }
 
 function moveQuality(diff) {
-  if (diff >= -20) return 'good';
-  if (diff >= -60) return 'inaccuracy';
-  if (diff >= -150) return 'mistake';
+  if (diff >= 5) return 'good';
+  if (diff >= -20) return 'inaccuracy';
+  if (diff >= -90) return 'mistake';
   return 'blunder';
+}
+
+function moveAdjustment(moveSAN, fenBefore) {
+  const fullMove = Number(fenBefore.split(' ')[5]);
+  let adjustment = 0;
+
+  if (/^Q/.test(moveSAN) && fullMove <= 5) adjustment -= 70;
+  if (/^[a-h][34]$/.test(moveSAN) && !/^[de]/.test(moveSAN) && fullMove <= 8) adjustment -= 25;
+  if (/^O-O/.test(moveSAN)) adjustment += 35;
+  if (/[+#]$/.test(moveSAN)) adjustment += 20;
+  if (/x/.test(moveSAN)) adjustment += 10;
+
+  return adjustment;
+}
+
+function tacticalAdjustment(moveSAN, fenBefore, fenAfter) {
+  const before = new Chess(fenBefore);
+  const after = new Chess(fenAfter);
+  const lastMove = before.moves({ verbose: true }).find(move => move.san === moveSAN);
+  if (!lastMove) return 0;
+  const movedPiece = after.get(lastMove.to);
+  if (!movedPiece) return 0;
+
+  const opponentCaptures = after.moves({ verbose: true }).filter(move => (
+    move.to === lastMove.to && move.captured
+  ));
+  if (opponentCaptures.length === 0) return 0;
+
+  const pieceValues = { p: 100, n: 320, b: 330, r: 500, q: 900, k: 0 };
+  const value = pieceValues[movedPiece.type] || 0;
+  return -Math.min(450, Math.round(value * 0.65));
 }
 
 const bedrock = new BedrockRuntimeClient({
@@ -36,9 +89,9 @@ const bedrock = new BedrockRuntimeClient({
 });
 
 const difficultyInstructions = {
-  beginner: 'Play a human-friendly move. Prefer simple plans and allow occasional obvious inaccuracies.',
-  intermediate: 'Play a solid club-level move. Use basic tactics, but do not search for forcing perfection.',
-  advanced: 'Play a strong competitive move. Use tactical and positional reasoning, but stay within this selected level.',
+  beginner: 'Play one simple, human-friendly move. Prefer clear plans and basic development over sharp tactics.',
+  intermediate: 'Compare at least two candidate moves, use basic tactics, and choose a solid club-level move.',
+  advanced: 'Calculate forcing checks, captures, and threats at least three plies deep. Compare at least three candidate moves, choose the strongest legal move, and actively punish tactical errors while staying within this selected level.',
 };
 
 function extractJson(text) {
@@ -66,7 +119,7 @@ async function requestAiMove(fen, difficulty, retry = false) {
   const command = new ConverseCommand({
     modelId: process.env.BEDROCK_MODEL_ID || 'amazon.nova-pro-v1:0',
     messages: [{ role: 'user', content: [{ text: prompt }] }],
-    inferenceConfig: { maxTokens: 160, temperature: difficulty === 'beginner' ? 0.8 : 0.3 },
+    inferenceConfig: { maxTokens: 160, temperature: difficulty === 'beginner' ? 0.8 : difficulty === 'intermediate' ? 0.2 : 0.05 },
   });
   try {
     const response = await bedrock.send(command);
@@ -94,22 +147,24 @@ app.post('/api/evaluate-move', (req, res) => {
     return res.status(400).json({ error: 'fenBefore, fenAfter, and moveSAN are required' });
   }
 
-  const scoreBefore = stubEvaluate(fenBefore);
-  const scoreAfter = stubEvaluate(fenAfter);
+  const scoreBefore = evaluatePosition(fenBefore);
+  const scoreAfter = evaluatePosition(fenAfter);
   // Flip sign based on whose turn it was (fenBefore side)
   const sideMultiplier = fenBefore.split(' ')[1] === 'w' ? 1 : -1;
   // Transform both scores to moving-side perspective before differencing
-  const scoreDiff = sideMultiplier * scoreAfter - sideMultiplier * scoreBefore;
+  const scoreDiff = sideMultiplier * scoreAfter - sideMultiplier * scoreBefore
+    + moveAdjustment(moveSAN, fenBefore)
+    + tacticalAdjustment(moveSAN, fenBefore, fenAfter);
   const quality = moveQuality(scoreDiff);
 
   // Stub best move: just report the played move as "best"
   const bestMove = moveSAN;
 
   const explanations = {
-    good: `${moveSAN} is a solid move that maintains or improves your position.`,
-    inaccuracy: `${moveSAN} is slightly inaccurate. There may be a better option available.`,
-    mistake: `${moveSAN} is a mistake. Your opponent can take advantage of this.`,
-    blunder: `${moveSAN} is a blunder! This significantly weakens your position.`,
+    good: `${moveSAN} improves your position by preserving material and supporting development, activity, or a concrete threat.`,
+    inaccuracy: `${moveSAN} is playable, but it gives up some activity or coordination. Compare it with a forcing move before committing.`,
+    mistake: `${moveSAN} weakens your position. It gives your opponent a useful target or allows them to gain time, space, or initiative.`,
+    blunder: `${moveSAN} is a serious error. Recheck all opponent checks, captures, and threats before making this kind of move.`,
   };
 
   const improvementAdvice = {

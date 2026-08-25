@@ -5,6 +5,32 @@ import './App.css';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || 'http://localhost:4000';
 
+const winningStrategies = [
+  'Keep creating threats while checking that every attacking piece is protected.',
+  'Convert an advantage by improving your least active piece before starting a new attack.',
+  'When ahead, trade pieces carefully and keep your king safe.',
+  'Look for forcing sequences in order: checks, captures, then threats.',
+  'Use open files and diagonals to bring your rooks and bishops into the game.',
+  'Before capturing, ask whether the exchange improves your position or only wins a pawn.',
+  'Keep developing pieces toward useful squares instead of moving the same piece repeatedly.',
+  'When you have initiative, make threats that force your opponent to respond.',
+  'Review the moment your advantage began and identify the decision that created it.',
+  'Build on this result by explaining your plan before making your next move.',
+];
+
+const learningStrategies = [
+  'Before moving, scan every opponent check, capture, and direct threat.',
+  'Compare two candidate moves and predict your opponent\'s strongest reply.',
+  'Develop your knights and bishops before moving the queen repeatedly.',
+  'Castle early when the center is open and your king needs safety.',
+  'Fight for the center with pieces and pawns while keeping them defended.',
+  'After every opponent move, ask what changed and which piece is now under pressure.',
+  'Count attackers and defenders before exchanging or capturing.',
+  'Look one move deeper: do not stop calculating after finding your own idea.',
+  'When unsure, improve your worst-placed piece instead of making a random pawn move.',
+  'Review your biggest mistake first, then practice the position until the threat is familiar.',
+];
+
 function qualityColor(quality) {
   switch (quality) {
     case 'good': return '#22c55e';
@@ -62,20 +88,27 @@ export function getResultMessage(result, playerColor) {
   return `${result.message} ${playerWon ? 'Congratulations!' : 'Keep practicing and review the key moments from this game.'}`;
 }
 
-function GameResult({ result, moveHistory, playerColor }) {
+export function selectStrategy(result, playerColor, randomValue = Math.random()) {
+  const playerName = playerColor === 'white' ? 'White' : 'Black';
+  const strategies = result.type === 'win' && result.winner === playerName
+    ? winningStrategies
+    : learningStrategies;
+  return strategies[Math.floor(randomValue * strategies.length)];
+}
+
+function GameResult({ result, moveHistory, playerColor, strategyFocus }) {
   if (!result) return null;
 
   const humanMoves = moveHistory.filter(move => move.actor === 'human');
   const errors = humanMoves.filter(move => ['inaccuracy', 'mistake', 'blunder'].includes(move.quality));
-  const goodMoves = humanMoves.filter(move => move.quality === 'good');
-  const blunders = errors.filter(move => move.quality === 'blunder').length;
-  const mistakes = errors.filter(move => move.quality === 'mistake').length;
-  const inaccuracies = errors.filter(move => move.quality === 'inaccuracy').length;
-  const strategies = [];
-  if (blunders > 0) strategies.push('Before moving, check every opponent check, capture, and threat.');
-  if (mistakes > 0) strategies.push('Compare at least two candidate moves and ask what your opponent will do next.');
-  if (inaccuracies > 0) strategies.push('Improve your move selection by checking king safety, development, and center control.');
-  if (strategies.length === 0) strategies.push('Keep reviewing forcing moves and look for checks, captures, and threats each turn.');
+  const goodMoves = humanMoves
+    .filter(move => move.quality === 'good')
+    .sort((first, second) => (second.scoreDiff || 0) - (first.scoreDiff || 0))
+    .slice(0, 3);
+  const allGoodMoves = humanMoves.filter(move => move.quality === 'good');
+  const reviewMoves = errors
+    .sort((first, second) => (first.scoreDiff || 0) - (second.scoreDiff || 0))
+    .slice(0, 3);
   const resultMessage = getResultMessage(result, playerColor);
 
   return (
@@ -85,17 +118,17 @@ function GameResult({ result, moveHistory, playerColor }) {
       <div className="total-feedback">
         <h3>Total Feedback</h3>
         <p>You played {humanMoves.length} move{humanMoves.length === 1 ? '' : 's'}.</p>
-        <p>{goodMoves.length} good, {errors.length} move{errors.length === 1 ? '' : 's'} to review.</p>
+        <p>{allGoodMoves.length} good, {errors.length} move{errors.length === 1 ? '' : 's'} to review.</p>
         {goodMoves.length > 0 && (
           <div className="review-list good-list">
-            <strong>Good moves</strong>
+            <strong>Top 3 good moves</strong>
             <p>{goodMoves.map(move => `${move.san} (${move.explanation})`).join(' ')}</p>
           </div>
         )}
-        {errors.length > 0 && (
+        {reviewMoves.length > 0 && (
           <div className="review-list error-list">
-            <strong>Moves to review</strong>
-            {errors.map(move => (
+            <strong>Top 3 moves to review</strong>
+            {reviewMoves.map(move => (
               <p key={`${move.san}-${move.explanation}`}>
                 <b>{move.san} - {move.quality}:</b> {move.explanation} {move.improvementAdvice}
               </p>
@@ -103,8 +136,8 @@ function GameResult({ result, moveHistory, playerColor }) {
           </div>
         )}
         <div className="improvement-summary">
-          <strong>Strategy focus</strong>
-          {strategies.map(strategy => <p key={strategy}>{strategy}</p>)}
+          <strong>Strategy Focus</strong>
+          <p>{strategyFocus}</p>
         </div>
       </div>
       <p className="result-prompt">Start a new game with Reset Game.</p>
@@ -112,11 +145,16 @@ function GameResult({ result, moveHistory, playerColor }) {
   );
 }
 
-function FeedbackPanel({ feedback, loading, gameResult, moveHistory, playerColor }) {
+function FeedbackPanel({ feedback, loading, gameResult, moveHistory, playerColor, strategyFocus }) {
   if (gameResult) {
     return (
       <div className="feedback-panel">
-        <GameResult result={gameResult} moveHistory={moveHistory} playerColor={playerColor} />
+        <GameResult
+          result={gameResult}
+          moveHistory={moveHistory}
+          playerColor={playerColor}
+          strategyFocus={strategyFocus}
+        />
       </div>
     );
   }
@@ -167,6 +205,10 @@ function FeedbackPanel({ feedback, loading, gameResult, moveHistory, playerColor
           <div className="move-info-row">
             <span className="move-san"><strong>Move:</strong> {moveSAN}</span>
             <span className="quality-badge ai-badge">opponent</span>
+          </div>
+          <div className="best-move-row">
+            <span className="score-label">Level:</span>
+            <span className="score-value">{feedback.difficulty}</span>
           </div>
         </section>
         <section className="panel-section">
@@ -225,6 +267,7 @@ export default function App() {
   const [lastMoveSquares, setLastMoveSquares] = useState({});
   const [gameResult, setGameResult] = useState(null);
   const [moveHistory, setMoveHistory] = useState([]);
+  const [strategyFocus, setStrategyFocus] = useState('Complete a game to receive a strategy focus.');
 
   const playAiTurn = useCallback(async (position, selectedDifficulty) => {
     setLoading(true);
@@ -240,7 +283,9 @@ export default function App() {
       const aiGame = new Chess(position);
       const aiMove = aiGame.move(data.moveSAN);
       setGame(aiGame.fen());
-      setGameResult(getGameResult(aiGame));
+      const aiResult = getGameResult(aiGame);
+      setGameResult(aiResult);
+      if (aiResult) setStrategyFocus(selectStrategy(aiResult, playerColor));
       setMoveHistory(history => [...history, { actor: 'ai', san: aiMove.san }]);
       setLastMoveSquares({
         [aiMove.from]: { background: moveHighlight('ai move', 'ai') },
@@ -248,6 +293,7 @@ export default function App() {
       });
       setFeedback({
         actor: 'ai',
+        difficulty: selectedDifficulty,
         moveSAN: aiMove.san,
         moveQuality: 'ai move',
         scoreBefore: 0,
@@ -261,7 +307,7 @@ export default function App() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [playerColor]);
 
   const handleColorChange = useCallback(event => {
     const selectedColor = event.target.value;
@@ -272,6 +318,7 @@ export default function App() {
     setLastMoveSquares({});
     setGameResult(null);
     setMoveHistory([]);
+    setStrategyFocus('Complete a game to receive a strategy focus.');
   }, [gameStarted]);
 
   const startGame = useCallback(() => {
@@ -281,6 +328,7 @@ export default function App() {
     setLastMoveSquares({});
     setGameResult(null);
     setMoveHistory([]);
+    setStrategyFocus('Complete a game to receive a strategy focus.');
     setGameStarted(true);
     if (playerColor === 'black') playAiTurn(initialPosition, difficulty);
   }, [difficulty, playAiTurn, playerColor]);
@@ -341,11 +389,17 @@ export default function App() {
             [targetSquare]: { background: moveHighlight(data.moveQuality, 'human') },
           });
           setFeedback({ ...data, moveSAN: move.san });
-          if (moveResult) setGameResult(moveResult);
+          if (moveResult) {
+            setGameResult(moveResult);
+            setStrategyFocus(selectStrategy(moveResult, playerColor));
+          }
         })
         .catch(() => {
           setFeedback({ error: 'Could not reach the backend.' });
-          if (moveResult) setGameResult(moveResult);
+          if (moveResult) {
+            setGameResult(moveResult);
+            setStrategyFocus(selectStrategy(moveResult, playerColor));
+          }
         })
         .finally(() => {
           setLoading(false);
@@ -367,6 +421,7 @@ export default function App() {
     setLoading(false);
     setGameResult(null);
     setMoveHistory([]);
+    setStrategyFocus('Complete a game to receive a strategy focus.');
     setGameStarted(false);
   }, []);
 
@@ -426,6 +481,7 @@ export default function App() {
             gameResult={gameResult}
             moveHistory={moveHistory}
             playerColor={playerColor}
+            strategyFocus={strategyFocus}
           />
         </div>
       </main>

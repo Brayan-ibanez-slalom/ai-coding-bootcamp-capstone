@@ -167,7 +167,7 @@ Open `http://localhost:3000`. The frontend uses `REACT_APP_BACKEND_URL` when pro
 | `PORT` | Backend | `4000` | Changes the Express listening port. |
 | `REACT_APP_BACKEND_URL` | Frontend | `http://localhost:4000` | Changes the API base URL at build/start time. |
 | `AWS_REGION` | Backend | `us-east-1` | AWS region used for Bedrock requests. |
-| `BEDROCK_MODEL_ID` | Backend | `amazon.nova-pro-v1:0` | Bedrock model used for the AI opponent. |
+| `BEDROCK_MODEL_ID` | Backend | `amazon.nova-pro-v1:0` | Bedrock model used for the AI opponent and advice. |
 | `AWS_BEARER_TOKEN_BEDROCK` | Backend | none | Temporary Bedrock bearer token used for local development. |
 
 For local development, copy `backend/.env.example` to `backend/.env` and replace the placeholder with a new token. The backend loads that ignored file with `dotenv`. AWS credentials must remain server-side; never put AWS access keys or Bedrock credentials in frontend code or `REACT_APP_*` variables. The AI opponent requires AWS Bedrock access; if Bedrock is unavailable or returns an invalid move, the backend validates and plays a legal fallback move so the match can continue, and the UI explains that fallback was used.
@@ -294,7 +294,7 @@ The testing standard requires the app to be started and exercised in a browser b
 
 ## Future Improvements
 
-1. Replace `stubEvaluate` with Stockfish or another engine and expose depth/time controls.
+1. Replace the lightweight positional evaluator with a chess engine for stronger move judgments.
 2. Compute a genuine best line and compare the played move with the engine's recommended move.
 3. Validate FEN syntax and the move transition on the server before evaluating.
 4. Add structured error handling for non-2xx responses and malformed API payloads.

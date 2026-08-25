@@ -91,7 +91,7 @@ Response fields:
 }
 ```
 
-The current score is a material-only stub in centipawns: pawn `100`, knight `320`, bishop `330`, rook `500`, queen `900`, king `0`. The score difference is transformed to the moving side's perspective. Quality thresholds are `good >= -20`, `inaccuracy >= -60`, `mistake >= -150`, otherwise `blunder`.
+The current score is a lightweight heuristic in centipawns. It combines material values with center control, minor-piece development, legal mobility, castling rights, opening discipline, checks, captures, and immediate tactical danger. The score difference is transformed to the moving side's perspective. Strict quality thresholds are `good >= 5`, `inaccuracy >= -20`, `mistake >= -90`, otherwise `blunder`. It is not a substitute for a full chess engine.
 
 Human feedback must never be blank. Use deterministic fallback explanations/advice when an LLM is unavailable.
 

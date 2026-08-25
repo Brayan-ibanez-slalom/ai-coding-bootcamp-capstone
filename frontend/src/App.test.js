@@ -1,5 +1,5 @@
 import { fireEvent, render, screen } from '@testing-library/react';
-import App, { getGameResult, getResultMessage } from './App';
+import App, { getGameResult, getResultMessage, selectStrategy } from './App';
 import { Chess } from 'chess.js';
 
 test('renders app title', () => {
@@ -48,4 +48,18 @@ test('reports a neutral message for a draw', () => {
   expect(result.type).toBe('draw');
   expect(getResultMessage(result, 'white')).toMatch(/Draw by insufficient material/);
   expect(getResultMessage(result, 'white')).not.toMatch(/Congratulations/);
+});
+
+test('selects different improvement strategies for wins and losses', () => {
+  const whiteWin = new Chess();
+  ['e4', 'e5', 'Bc4', 'Nc6', 'Qh5', 'Nf6', 'Qxf7#'].forEach(move => whiteWin.move(move));
+  const blackWin = new Chess();
+  ['f3', 'e5', 'g4', 'Qh4#'].forEach(move => blackWin.move(move));
+
+  const winStrategy = selectStrategy(getGameResult(whiteWin), 'white', 0);
+  const lossStrategy = selectStrategy(getGameResult(blackWin), 'white', 0);
+
+  expect(winStrategy).toMatch(/threat|advantage|forcing|piece|king|attack|capture|initiative|plan|open/i);
+  expect(lossStrategy).toMatch(/check|candidate|develop|castle|center|pressure|defend|calculate|piece|review/i);
+  expect(winStrategy).not.toBe(lossStrategy);
 });
