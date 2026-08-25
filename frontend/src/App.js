@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { Chessboard } from 'react-chessboard';
 import { Chess } from 'chess.js';
 import './App.css';
@@ -259,6 +259,7 @@ function FeedbackPanel({ feedback, loading, gameResult, moveHistory, playerColor
 
 export default function App() {
   const [game, setGame] = useState(new Chess().fen());
+  const [boardWidth, setBoardWidth] = useState(() => Math.min(600, window.innerWidth - 64));
   const [playerColor, setPlayerColor] = useState('white');
   const [difficulty, setDifficulty] = useState('beginner');
   const [gameStarted, setGameStarted] = useState(false);
@@ -268,6 +269,12 @@ export default function App() {
   const [gameResult, setGameResult] = useState(null);
   const [moveHistory, setMoveHistory] = useState([]);
   const [strategyFocus, setStrategyFocus] = useState('Complete a game to receive a strategy focus.');
+
+  useEffect(() => {
+    const updateBoardWidth = () => setBoardWidth(Math.min(600, window.innerWidth - 64));
+    window.addEventListener('resize', updateBoardWidth);
+    return () => window.removeEventListener('resize', updateBoardWidth);
+  }, []);
 
   const playAiTurn = useCallback(async (position, selectedDifficulty) => {
     setLoading(true);
@@ -447,7 +454,7 @@ export default function App() {
               <select value={difficulty} onChange={event => setDifficulty(event.target.value)}>
                 <option value="beginner">Beginner</option>
                 <option value="intermediate">Intermediate</option>
-                <option value="advanced">Advanced</option>
+                <option value="advanced">Advanced - Expert</option>
               </select>
             </label>
           </div>
@@ -458,7 +465,7 @@ export default function App() {
                 boardOrientation: playerColor,
                 canDragPiece: ({ isSparePiece }) => gameStarted && !isSparePiece,
                 onPieceDrop: onDrop,
-                boardWidth: 480,
+                boardWidth,
                 customSquareStyles: lastMoveSquares,
                 darkSquareStyle: { backgroundColor: '#4b5563' },
                 lightSquareStyle: { backgroundColor: '#f4f4f5' },

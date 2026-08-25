@@ -84,14 +84,36 @@ function tacticalAdjustment(moveSAN, fenBefore, fenAfter) {
   return -Math.min(450, Math.round(value * 0.65));
 }
 
+function chooseFallbackMove(fen, difficulty) {
+  const chess = new Chess(fen);
+  const moves = chess.moves({ verbose: true });
+  const pieceValues = { p: 100, n: 320, b: 330, r: 500, q: 900, k: 20000 };
+
+  return moves
+    .map(move => {
+      const candidate = new Chess(fen);
+      const applied = candidate.move(move);
+      let score = 0;
+      if (candidate.isCheckmate()) score += 100000;
+      if (applied.san.includes('+')) score += 5000;
+      if (applied.captured) score += 1000 + (pieceValues[applied.captured] || 0);
+      if (applied.promotion) score += 800;
+      if (applied.san.startsWith('O-O')) score += difficulty === 'advanced' ? 250 : 100;
+      if (['d4', 'e4', 'd5', 'e5'].includes(applied.to)) score += 80;
+      if (['n', 'b'].includes(applied.piece) && !['b1', 'c1', 'f1', 'g1', 'b8', 'c8', 'f8', 'g8'].includes(applied.to)) score += 60;
+      return { san: applied.san, score };
+    })
+    .sort((first, second) => second.score - first.score)[0]?.san;
+}
+
 const bedrock = new BedrockRuntimeClient({
   region: process.env.AWS_REGION || 'us-east-1',
 });
 
 const difficultyInstructions = {
   beginner: 'Play one simple, human-friendly move. Prefer clear plans and basic development over sharp tactics.',
-  intermediate: 'Compare at least two candidate moves, use basic tactics, and choose a solid club-level move.',
-  advanced: 'Calculate forcing checks, captures, and threats at least three plies deep. Compare at least three candidate moves, choose the strongest legal move, and actively punish tactical errors while staying within this selected level.',
+  intermediate: 'Compare at least three candidate moves and calculate the most forcing reply. Use basic tactics and choose a solid club-level move.',
+  advanced: 'Play as a demanding tournament opponent, not a teaching opponent. Calculate forcing checks, captures, and threats at least five plies deep. Compare at least five candidate moves, search for tactical refutations, punish hanging pieces, improve the worst-placed piece, and choose the strongest legal move. Do not intentionally make inaccurate or passive moves.',
 };
 
 function extractJson(text) {
@@ -119,7 +141,11 @@ async function requestAiMove(fen, difficulty, retry = false) {
   const command = new ConverseCommand({
     modelId: process.env.BEDROCK_MODEL_ID || 'amazon.nova-pro-v1:0',
     messages: [{ role: 'user', content: [{ text: prompt }] }],
-    inferenceConfig: { maxTokens: 160, temperature: difficulty === 'beginner' ? 0.8 : difficulty === 'intermediate' ? 0.2 : 0.05 },
+    inferenceConfig: {
+      maxTokens: difficulty === 'advanced' ? 300 : 160,
+      temperature: difficulty === 'beginner' ? 0.8 : difficulty === 'intermediate' ? 0.2 : 0.05,
+      topP: difficulty === 'advanced' ? 0.85 : undefined,
+    },
   });
   try {
     const response = await bedrock.send(command);
@@ -197,9 +223,7 @@ app.post('/api/ai-move', async (req, res) => {
   } catch (error) {
     console.error('AI move unavailable:', error.message);
     try {
-      const fallbackGame = new Chess(fen);
-      const fallbackMoves = fallbackGame.moves();
-      const fallbackMove = fallbackMoves[0];
+      const fallbackMove = chooseFallbackMove(fen, difficulty);
       if (!fallbackMove) throw new Error('No legal fallback move available');
       const authenticationFailed = error.message.toLowerCase().includes('authentication')
         || error.message.toLowerCase().includes('api key');

@@ -40,15 +40,16 @@ body {
 
 /* ── Main layout ── */
 .app-main {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(600px, 1fr) minmax(480px, 600px);
   flex: 1;
   gap: 32px;
   padding: 40px 32px;
   align-items: flex-start;
   justify-content: center;
-  flex-wrap: wrap;
   max-width: 1180px;
   margin: 0 auto;
+  width: 100%;
 }
 
 /* ── Board column ── */
@@ -57,11 +58,12 @@ body {
   flex-direction: column;
   align-items: center;
   gap: 20px;
+  min-width: 0;
 }
 
 .game-controls {
   display: flex;
-  width: min(480px, 100%);
+  width: min(600px, 100%);
   gap: 12px;
 }
 
@@ -129,9 +131,8 @@ body {
 
 /* ── Panel column ── */
 .panel-column {
-  flex: 1;
-  min-width: 420px;
-  max-width: 520px;
+  min-width: 0;
+  width: 100%;
 }
 
 /* ── Feedback panel ── */
@@ -343,9 +344,23 @@ body {
   line-height: 1.5;
 }
 
+@media (max-width: 1120px) {
+  .app-main {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .panel-column {
+    width: min(600px, 100%);
+  }
+}
+
 @media (max-width: 560px) {
   .app-main {
+    display: flex;
     padding: 24px 16px;
+    flex-direction: column;
   }
 
   .panel-column {
