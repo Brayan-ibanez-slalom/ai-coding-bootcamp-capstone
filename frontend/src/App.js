@@ -259,7 +259,7 @@ function FeedbackPanel({ feedback, loading, gameResult, moveHistory, playerColor
 
 export default function App() {
   const [game, setGame] = useState(new Chess().fen());
-  const [boardWidth, setBoardWidth] = useState(() => Math.min(600, window.innerWidth - 64));
+  const [boardWidth, setBoardWidth] = useState(() => Math.min(720, window.innerWidth - 64));
   const [playerColor, setPlayerColor] = useState('white');
   const [difficulty, setDifficulty] = useState('beginner');
   const [gameStarted, setGameStarted] = useState(false);
@@ -271,7 +271,7 @@ export default function App() {
   const [strategyFocus, setStrategyFocus] = useState('Complete a game to receive a strategy focus.');
 
   useEffect(() => {
-    const updateBoardWidth = () => setBoardWidth(Math.min(600, window.innerWidth - 64));
+    const updateBoardWidth = () => setBoardWidth(Math.min(720, window.innerWidth - 64));
     window.addEventListener('resize', updateBoardWidth);
     return () => window.removeEventListener('resize', updateBoardWidth);
   }, []);
@@ -377,6 +377,9 @@ export default function App() {
         san: move.san,
         quality: null,
       }]);
+      if (!moveResult && gameCopy.turn() !== playerColor[0]) {
+        playAiTurn(gameCopy.fen(), difficulty, [...moveHistory, { actor: 'human', san: move.san }]);
+      }
       fetch(`${BACKEND_URL}/api/evaluate-move`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -414,9 +417,6 @@ export default function App() {
         })
         .finally(() => {
           setLoading(false);
-          if (!moveResult && gameCopy.turn() !== playerColor[0]) {
-            playAiTurn(gameCopy.fen(), difficulty, [...moveHistory, { actor: 'human', san: move.san }]);
-          }
         });
 
       return true;

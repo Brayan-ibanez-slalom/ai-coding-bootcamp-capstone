@@ -41,13 +41,13 @@ body {
 /* ── Main layout ── */
 .app-main {
   display: grid;
-  grid-template-columns: minmax(600px, 1fr) minmax(480px, 600px);
+  grid-template-columns: minmax(700px, 1fr) minmax(460px, 560px);
   flex: 1;
   gap: 32px;
   padding: 40px 32px;
   align-items: flex-start;
   justify-content: center;
-  max-width: 1180px;
+  max-width: 1360px;
   margin: 0 auto;
   width: 100%;
 }
@@ -63,7 +63,7 @@ body {
 
 .game-controls {
   display: flex;
-  width: min(600px, 100%);
+  width: min(720px, 100%);
   gap: 12px;
 }
 
@@ -344,7 +344,7 @@ body {
   line-height: 1.5;
 }
 
-@media (max-width: 1120px) {
+@media (max-width: 1280px) {
   .app-main {
     display: flex;
     flex-direction: column;
@@ -352,7 +352,7 @@ body {
   }
 
   .panel-column {
-    width: min(600px, 100%);
+    width: min(720px, 100%);
   }
 }
 
