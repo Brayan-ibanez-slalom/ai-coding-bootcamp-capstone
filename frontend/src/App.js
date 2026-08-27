@@ -1,9 +1,35 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { Chessboard } from 'react-chessboard';
 import { Chess } from 'chess.js';
 import './App.css';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || 'http://localhost:4000';
+
+const winningStrategies = [
+  'Keep creating threats while checking that every attacking piece is protected.',
+  'Convert an advantage by improving your least active piece before starting a new attack.',
+  'When ahead, trade pieces carefully and keep your king safe.',
+  'Look for forcing sequences in order: checks, captures, then threats.',
+  'Use open files and diagonals to bring your rooks and bishops into the game.',
+  'Before capturing, ask whether the exchange improves your position or only wins a pawn.',
+  'Keep developing pieces toward useful squares instead of moving the same piece repeatedly.',
+  'When you have initiative, make threats that force your opponent to respond.',
+  'Review the moment your advantage began and identify the decision that created it.',
+  'Build on this result by explaining your plan before making your next move.',
+];
+
+const learningStrategies = [
+  'Before moving, scan every opponent check, capture, and direct threat.',
+  'Compare two candidate moves and predict your opponent\'s strongest reply.',
+  'Develop your knights and bishops before moving the queen repeatedly.',
+  'Castle early when the center is open and your king needs safety.',
+  'Fight for the center with pieces and pawns while keeping them defended.',
+  'After every opponent move, ask what changed and which piece is now under pressure.',
+  'Count attackers and defenders before exchanging or capturing.',
+  'Look one move deeper: do not stop calculating after finding your own idea.',
+  'When unsure, improve your worst-placed piece instead of making a random pawn move.',
+  'Review your biggest mistake first, then practice the position until the threat is familiar.',
+];
 
 function qualityColor(quality) {
   switch (quality) {
@@ -62,17 +88,27 @@ export function getResultMessage(result, playerColor) {
   return `${result.message} ${playerWon ? 'Congratulations!' : 'Keep practicing and review the key moments from this game.'}`;
 }
 
-function GameResult({ result, moveHistory, playerColor }) {
+export function selectStrategy(result, playerColor, randomValue = Math.random()) {
+  const playerName = playerColor === 'white' ? 'White' : 'Black';
+  const strategies = result.type === 'win' && result.winner === playerName
+    ? winningStrategies
+    : learningStrategies;
+  return strategies[Math.floor(randomValue * strategies.length)];
+}
+
+function GameResult({ result, moveHistory, playerColor, strategyFocus }) {
   if (!result) return null;
 
   const humanMoves = moveHistory.filter(move => move.actor === 'human');
   const errors = humanMoves.filter(move => ['inaccuracy', 'mistake', 'blunder'].includes(move.quality));
-  const goodMoves = humanMoves.filter(move => move.quality === 'good');
-  const improvement = errors.some(move => move.quality === 'blunder')
-    ? 'Focus on checking your opponent\'s immediate threats before every move.'
-    : errors.some(move => move.quality === 'mistake')
-      ? 'Compare candidate moves and look for checks, captures, and threats.'
-      : 'Keep practicing your opening principles and review your candidate moves.';
+  const goodMoves = humanMoves
+    .filter(move => move.quality === 'good')
+    .sort((first, second) => (second.scoreDiff || 0) - (first.scoreDiff || 0))
+    .slice(0, 3);
+  const allGoodMoves = humanMoves.filter(move => move.quality === 'good');
+  const reviewMoves = errors
+    .sort((first, second) => (first.scoreDiff || 0) - (second.scoreDiff || 0))
+    .slice(0, 3);
   const resultMessage = getResultMessage(result, playerColor);
 
   return (
@@ -82,22 +118,43 @@ function GameResult({ result, moveHistory, playerColor }) {
       <div className="total-feedback">
         <h3>Total Feedback</h3>
         <p>You played {humanMoves.length} move{humanMoves.length === 1 ? '' : 's'}.</p>
-        <p>{goodMoves.length} good, {errors.length} move{errors.length === 1 ? '' : 's'} to review.</p>
-        {errors.length > 0 && (
-          <p className="error-summary">Review: {errors.map(move => `${move.san} (${move.quality})`).join(', ')}</p>
+        <p>{allGoodMoves.length} good, {errors.length} move{errors.length === 1 ? '' : 's'} to review.</p>
+        {goodMoves.length > 0 && (
+          <div className="review-list good-list">
+            <strong>Top 3 good moves</strong>
+            <p>{goodMoves.map(move => `${move.san} (${move.explanation})`).join(' ')}</p>
+          </div>
         )}
-        <p className="improvement-summary"><strong>Next focus:</strong> {improvement}</p>
+        {reviewMoves.length > 0 && (
+          <div className="review-list error-list">
+            <strong>Top 3 moves to review</strong>
+            {reviewMoves.map(move => (
+              <p key={`${move.san}-${move.explanation}`}>
+                <b>{move.san} - {move.quality}:</b> {move.explanation} {move.improvementAdvice}
+              </p>
+            ))}
+          </div>
+        )}
+        <div className="improvement-summary">
+          <strong>Strategy Focus</strong>
+          <p>{strategyFocus}</p>
+        </div>
       </div>
       <p className="result-prompt">Start a new game with Reset Game.</p>
     </section>
   );
 }
 
-function FeedbackPanel({ feedback, loading, gameResult, moveHistory, playerColor }) {
+function FeedbackPanel({ feedback, loading, gameResult, moveHistory, playerColor, strategyFocus }) {
   if (gameResult) {
     return (
       <div className="feedback-panel">
-        <GameResult result={gameResult} moveHistory={moveHistory} playerColor={playerColor} />
+        <GameResult
+          result={gameResult}
+          moveHistory={moveHistory}
+          playerColor={playerColor}
+          strategyFocus={strategyFocus}
+        />
       </div>
     );
   }
@@ -115,7 +172,7 @@ function FeedbackPanel({ feedback, loading, gameResult, moveHistory, playerColor
     return (
       <div className="feedback-panel">
         <h2 className="panel-title">Move Feedback</h2>
-        <p className="muted">Make a move to see feedback.</p>
+        <p className="muted">Start a game to play and receive feedback.</p>
       </div>
     );
   }
@@ -148,6 +205,10 @@ function FeedbackPanel({ feedback, loading, gameResult, moveHistory, playerColor
           <div className="move-info-row">
             <span className="move-san"><strong>Move:</strong> {moveSAN}</span>
             <span className="quality-badge ai-badge">opponent</span>
+          </div>
+          <div className="best-move-row">
+            <span className="score-label">Level:</span>
+            <span className="score-value">{feedback.difficulty}</span>
           </div>
         </section>
         <section className="panel-section">
@@ -198,21 +259,34 @@ function FeedbackPanel({ feedback, loading, gameResult, moveHistory, playerColor
 
 export default function App() {
   const [game, setGame] = useState(new Chess().fen());
+  const [boardWidth, setBoardWidth] = useState(() => Math.min(720, window.innerWidth - 64));
   const [playerColor, setPlayerColor] = useState('white');
   const [difficulty, setDifficulty] = useState('beginner');
+  const [gameStarted, setGameStarted] = useState(false);
   const [feedback, setFeedback] = useState(null);
   const [loading, setLoading] = useState(false);
   const [lastMoveSquares, setLastMoveSquares] = useState({});
   const [gameResult, setGameResult] = useState(null);
   const [moveHistory, setMoveHistory] = useState([]);
+  const [strategyFocus, setStrategyFocus] = useState('Complete a game to receive a strategy focus.');
 
-  const playAiTurn = useCallback(async (position, selectedDifficulty) => {
+  useEffect(() => {
+    const updateBoardWidth = () => setBoardWidth(Math.min(720, window.innerWidth - 64));
+    window.addEventListener('resize', updateBoardWidth);
+    return () => window.removeEventListener('resize', updateBoardWidth);
+  }, []);
+
+  const playAiTurn = useCallback(async (position, selectedDifficulty, history) => {
     setLoading(true);
     try {
       const response = await fetch(`${BACKEND_URL}/api/ai-move`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ fen: position, difficulty: selectedDifficulty }),
+        body: JSON.stringify({
+          fen: position,
+          difficulty: selectedDifficulty,
+          moveHistory: history.map(move => move.san),
+        }),
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error);
@@ -220,7 +294,9 @@ export default function App() {
       const aiGame = new Chess(position);
       const aiMove = aiGame.move(data.moveSAN);
       setGame(aiGame.fen());
-      setGameResult(getGameResult(aiGame));
+      const aiResult = getGameResult(aiGame);
+      setGameResult(aiResult);
+      if (aiResult) setStrategyFocus(selectStrategy(aiResult, playerColor));
       setMoveHistory(history => [...history, { actor: 'ai', san: aiMove.san }]);
       setLastMoveSquares({
         [aiMove.from]: { background: moveHighlight('ai move', 'ai') },
@@ -228,6 +304,7 @@ export default function App() {
       });
       setFeedback({
         actor: 'ai',
+        difficulty: selectedDifficulty,
         moveSAN: aiMove.san,
         moveQuality: 'ai move',
         scoreBefore: 0,
@@ -241,24 +318,35 @@ export default function App() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [playerColor]);
 
   const handleColorChange = useCallback(event => {
     const selectedColor = event.target.value;
-    const initialPosition = new Chess().fen();
     setPlayerColor(selectedColor);
+    if (!gameStarted) return;
+    setGameStarted(false);
+    setFeedback(null);
+    setLastMoveSquares({});
+    setGameResult(null);
+    setMoveHistory([]);
+    setStrategyFocus('Complete a game to receive a strategy focus.');
+  }, [gameStarted]);
+
+  const startGame = useCallback(() => {
+    const initialPosition = new Chess().fen();
     setGame(initialPosition);
     setFeedback(null);
     setLastMoveSquares({});
-    setLoading(false);
     setGameResult(null);
     setMoveHistory([]);
-    if (selectedColor === 'black') playAiTurn(initialPosition, difficulty);
-  }, [difficulty, playAiTurn]);
+    setStrategyFocus('Complete a game to receive a strategy focus.');
+    setGameStarted(true);
+    if (playerColor === 'black') playAiTurn(initialPosition, difficulty, []);
+  }, [difficulty, playAiTurn, playerColor]);
 
   const onDrop = useCallback(
     ({ sourceSquare, targetSquare }) => {
-      if (!targetSquare) return false;
+      if (!gameStarted || !targetSquare) return false;
 
       const gameCopy = new Chess(game);
       if (gameCopy.turn() !== playerColor[0]) return false;
@@ -275,7 +363,6 @@ export default function App() {
       const fenAfter = gameCopy.fen();
       setGame(gameCopy.fen());
       const moveResult = getGameResult(gameCopy);
-      setGameResult(moveResult);
       setLastMoveSquares({
         [sourceSquare]: { background: 'rgba(234,179,8,0.35)' },
         [targetSquare]: { background: 'rgba(234,179,8,0.35)' },
@@ -283,6 +370,16 @@ export default function App() {
 
       setLoading(true);
       setFeedback(null);
+      const moveId = `${Date.now()}-${sourceSquare}-${targetSquare}`;
+      setMoveHistory(history => [...history, {
+        id: moveId,
+        actor: 'human',
+        san: move.san,
+        quality: null,
+      }]);
+      if (!moveResult && gameCopy.turn() !== playerColor[0]) {
+        playAiTurn(gameCopy.fen(), difficulty, [...moveHistory, { actor: 'human', san: move.san }]);
+      }
       fetch(`${BACKEND_URL}/api/evaluate-move`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -290,30 +387,41 @@ export default function App() {
       })
         .then(async (res) => {
           const data = await res.json();
-          setMoveHistory(history => [...history, {
-            actor: 'human',
-            san: move.san,
-            quality: data.moveQuality,
-          }]);
+          setMoveHistory(history => history.map(historyMove => (
+            historyMove.id === moveId
+              ? {
+                ...historyMove,
+                quality: data.moveQuality,
+                explanation: data.explanation,
+                improvementAdvice: data.improvementAdvice,
+                scoreDiff: data.scoreDiff,
+              }
+              : historyMove
+          )));
           setLastMoveSquares({
             [sourceSquare]: { background: moveHighlight(data.moveQuality, 'human') },
             [targetSquare]: { background: moveHighlight(data.moveQuality, 'human') },
           });
           setFeedback({ ...data, moveSAN: move.san });
+          if (moveResult) {
+            setGameResult(moveResult);
+            setStrategyFocus(selectStrategy(moveResult, playerColor));
+          }
         })
         .catch(() => {
           setFeedback({ error: 'Could not reach the backend.' });
+          if (moveResult) {
+            setGameResult(moveResult);
+            setStrategyFocus(selectStrategy(moveResult, playerColor));
+          }
         })
         .finally(() => {
           setLoading(false);
-          if (!moveResult && gameCopy.turn() !== playerColor[0]) {
-            playAiTurn(gameCopy.fen(), difficulty);
-          }
         });
 
       return true;
     },
-    [difficulty, game, playAiTurn, playerColor]
+    [difficulty, game, gameStarted, moveHistory, playAiTurn, playerColor]
   );
 
   const resetGame = useCallback(() => {
@@ -324,8 +432,9 @@ export default function App() {
     setLoading(false);
     setGameResult(null);
     setMoveHistory([]);
-    if (playerColor === 'black') playAiTurn(initialPosition, difficulty);
-  }, [difficulty, playAiTurn, playerColor]);
+    setStrategyFocus('Complete a game to receive a strategy focus.');
+    setGameStarted(false);
+  }, []);
 
   return (
     <div className="app-root">
@@ -349,7 +458,7 @@ export default function App() {
               <select value={difficulty} onChange={event => setDifficulty(event.target.value)}>
                 <option value="beginner">Beginner</option>
                 <option value="intermediate">Intermediate</option>
-                <option value="advanced">Advanced</option>
+                <option value="advanced">Advanced - Expert</option>
               </select>
             </label>
           </div>
@@ -358,8 +467,9 @@ export default function App() {
               options={{
                 position: game,
                 boardOrientation: playerColor,
+                canDragPiece: ({ isSparePiece }) => gameStarted && !isSparePiece,
                 onPieceDrop: onDrop,
-                boardWidth: 480,
+                boardWidth,
                 customSquareStyles: lastMoveSquares,
                 darkSquareStyle: { backgroundColor: '#4b5563' },
                 lightSquareStyle: { backgroundColor: '#f4f4f5' },
@@ -370,8 +480,8 @@ export default function App() {
               }}
             />
           </div>
-          <button className="reset-btn" onClick={resetGame}>
-            Reset Game
+          <button className="reset-btn" onClick={gameStarted ? resetGame : startGame}>
+            {gameStarted ? 'Reset Game' : 'Start Game'}
           </button>
         </div>
 
@@ -382,6 +492,7 @@ export default function App() {
             gameResult={gameResult}
             moveHistory={moveHistory}
             playerColor={playerColor}
+            strategyFocus={strategyFocus}
           />
         </div>
       </main>

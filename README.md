@@ -10,6 +10,8 @@ The project is intentionally compact: it demonstrates a React client, a JSON API
 - Allows pieces to be moved by drag and drop.
 - Rejects illegal moves in the browser before making an API request.
 - Automatically promotes pawns to queens when a promotion is required.
+- Lets the player choose a side and maximum difficulty before clicking `Start Game`.
+- Places the selected player color at the bottom of the board and lets the AI open when Black is selected.
 - Highlights the source and destination squares of the latest move.
 - Sends the position before and after the move to the backend.
 - Displays the material evaluation before and after the move, the score difference, a quality label, and a short explanation.
@@ -165,7 +167,7 @@ Open `http://localhost:3000`. The frontend uses `REACT_APP_BACKEND_URL` when pro
 | `PORT` | Backend | `4000` | Changes the Express listening port. |
 | `REACT_APP_BACKEND_URL` | Frontend | `http://localhost:4000` | Changes the API base URL at build/start time. |
 | `AWS_REGION` | Backend | `us-east-1` | AWS region used for Bedrock requests. |
-| `BEDROCK_MODEL_ID` | Backend | `amazon.nova-pro-v1:0` | Bedrock model used for the AI opponent. |
+| `BEDROCK_MODEL_ID` | Backend | `amazon.nova-pro-v1:0` | Bedrock model used for the AI opponent and advice. |
 | `AWS_BEARER_TOKEN_BEDROCK` | Backend | none | Temporary Bedrock bearer token used for local development. |
 
 For local development, copy `backend/.env.example` to `backend/.env` and replace the placeholder with a new token. The backend loads that ignored file with `dotenv`. AWS credentials must remain server-side; never put AWS access keys or Bedrock credentials in frontend code or `REACT_APP_*` variables. The AI opponent requires AWS Bedrock access; if Bedrock is unavailable or returns an invalid move, the backend validates and plays a legal fallback move so the match can continue, and the UI explains that fallback was used.
@@ -286,12 +288,13 @@ Project standards live in [`guidelines/`](guidelines/):
 
 - [UI design guidelines](guidelines/UI_DESIGN.md) cover color, typography, spacing, shapes, borders, interaction states, responsive behavior, and accessibility.
 - [Testing guidelines](guidelines/TESTING.md) define the automated checks, browser smoke test, API verification, and pre-push expectations.
+- [LLM agent handoff](guidelines/LLM_AGENT_HANDOFF.md) defines the exact project behavior and contracts for reproducing this app with another LLM coding agent.
 
 The testing standard requires the app to be started and exercised in a browser before pushing user-facing changes. This complements, rather than replaces, the frontend test suite and production build.
 
 ## Future Improvements
 
-1. Replace `stubEvaluate` with Stockfish or another engine and expose depth/time controls.
+1. Replace the lightweight positional evaluator with a chess engine for stronger move judgments.
 2. Compute a genuine best line and compare the played move with the engine's recommended move.
 3. Validate FEN syntax and the move transition on the server before evaluating.
 4. Add structured error handling for non-2xx responses and malformed API payloads.

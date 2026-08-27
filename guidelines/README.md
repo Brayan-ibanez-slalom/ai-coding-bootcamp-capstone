@@ -6,6 +6,7 @@ This folder contains the working standards for Chess Move Tutor. The guidelines 
 
 - [UI design guidelines](UI_DESIGN.md): color, typography, spacing, shapes, borders, states, responsive behavior, accessibility, and chess-specific interaction patterns.
 - [Testing guidelines](TESTING.md): local test commands, manual smoke checks, API checks, and the pre-push quality gate.
+- [LLM agent handoff](LLM_AGENT_HANDOFF.md): the exact project architecture, contracts, behavior, security rules, and validation scenarios for another coding agent.
 
 ## Definition of Done
 
